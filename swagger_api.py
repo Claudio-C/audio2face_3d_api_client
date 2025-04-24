@@ -53,7 +53,7 @@ stub = A2FControllerServiceStub(channel)
 async def process_audio(
     background_tasks: BackgroundTasks,
     audio_file: UploadFile = File(..., description="Audio file (16-bit PCM WAV)"),
-    config_file: Optional[UploadFile] = File(None, description="YAML configuration file"),
+    config_file: Optional[str] = Form(None, description="YAML configuration file name (should be in the config/ directory)"),
     config_json: Optional[str] = Form(None, description="Configuration as JSON string")
 ):
     # Create temporary directory for files
@@ -68,8 +68,15 @@ async def process_audio(
         
         # Handle configuration
         if config_file:
-            with open(config_path, "wb") as f:
-                f.write(await config_file.read())
+            # Check if it's a file path string
+            config_file_path = os.path.join("config", f"{config_file}.yml")
+            if os.path.exists(config_file_path):
+                shutil.copy(config_file_path, config_path)
+            else:
+                return JSONResponse(
+                    status_code=400,
+                    content={"error": f"Configuration file '{config_file_path}' not found"}
+                )
         elif config_json:
             import json
             config_data = json.loads(config_json)
