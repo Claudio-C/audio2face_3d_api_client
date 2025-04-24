@@ -53,8 +53,7 @@ stub = A2FControllerServiceStub(channel)
 async def process_audio(
     background_tasks: BackgroundTasks,
     audio_file: UploadFile = File(..., description="Audio file (16-bit PCM WAV)"),
-    config_file: Optional[str] = Form(None, description="YAML configuration file name (should be in the config/ directory)"),
-    config_json: Optional[str] = Form(None, description="Configuration as JSON string")
+    config_file: UploadFile = File(..., description="YAML configuration file")
 ):
     # Create temporary directory for files
     temp_dir = tempfile.mkdtemp()
@@ -66,27 +65,9 @@ async def process_audio(
         with open(audio_path, "wb") as f:
             f.write(await audio_file.read())
         
-        # Handle configuration
-        if config_file:
-            # Check if it's a file path string
-            config_file_path = os.path.join("config", f"{config_file}.yml")
-            if os.path.exists(config_file_path):
-                shutil.copy(config_file_path, config_path)
-            else:
-                return JSONResponse(
-                    status_code=400,
-                    content={"error": f"Configuration file '{config_file_path}' not found"}
-                )
-        elif config_json:
-            import json
-            config_data = json.loads(config_json)
-            with open(config_path, "w") as f:
-                yaml.dump(config_data, f)
-        else:
-            return JSONResponse(
-                status_code=400,
-                content={"error": "Either config_file or config_json must be provided"}
-            )
+        # Save config file
+        with open(config_path, "wb") as f:
+            f.write(await config_file.read())
         
         # Process through gRPC
         animation_data = await process_audio_with_grpc(audio_path, config_path)
